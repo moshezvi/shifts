@@ -16,6 +16,20 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Initialize the database (**required** before first API run)
+
+Provisioning lives in **`db/`** at the repo root. The web app **does not** create or migrate the database; it returns **503** with a hint if the SQLite file is missing.
+
+From **repository root** (venv active, with deps installed as above):
+
+```bash
+cd /path/to/shifts   # repo root, parent of backend/ and db/
+source backend/.venv/bin/activate   # or your venv location
+python -m db
+```
+
+`python -m db` adds **`backend/`** to `PYTHONPATH` so `app.*` imports resolve.
+
 ## Run the API + UI (development)
 
 ```bash
@@ -45,13 +59,25 @@ pkill -f "uvicorn app.main:app"
 - Default file: **`data/shifts.db`** (under repo root; gitignored).
 - Override path: **`DATABASE_PATH`** env var (absolute path recommended).
 
-Fresh database (empty participants → seed runs on startup):
+Fresh database (empty participants → seed runs on next init):
 
 ```bash
 rm -f data/shifts.db
 ```
 
-Then restart uvicorn so migrations + seed + shift slots run again.
+Then run **`python -m db`** (from repo root). Start uvicorn only after the file exists.
+
+## Tests and lint
+
+From **repository root** (install dev deps once: `pip install -r backend/requirements-dev.txt`):
+
+```bash
+source backend/.venv/bin/activate
+pytest
+ruff check backend/app db backend/tests
+```
+
+CI (`.github/workflows/ci.yml`) runs **pytest** and **ruff** on push/PR to `main`.
 
 ## Optional env
 

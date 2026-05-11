@@ -4,7 +4,7 @@ import random
 import sqlite3
 
 # Hebrew sample names — UTF-8. Roles: support | oncall | admin.
-# Regions: IL | NA — five volunteers NA, five IL (deterministic shuffle for stable seeds).
+# Regions IL|NA: five NA / five IL (shuffle seed 42).
 
 PARTICIPANT_ROWS: list[tuple[str, str | None, str, str]] = [
     ("יוסי כהן", "yossi@example.invalid", "support", "M"),

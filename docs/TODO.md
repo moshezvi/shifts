@@ -13,13 +13,15 @@ Parking lot for next sessions. Check items off as you go.
 
 ## Tests
 
-- [ ] Add **unit tests** for core logic (`schedule.py` operational slots, IL/NA bands, `domain.py` helpers, assignment validation).
-- [ ] Add **smoke tests** for HTTP API (health, participants, shifts list, PATCH assign, basic UI routes if feasible).
-- [ ] Wire tests into **CI** when you have it (GitHub Actions or similar).
+- [x] **Unit tests** for `schedule.py` (operational slots, IL/NA, anchor dates).
+- [x] **Smoke tests** for HTTP API (`/health`, `/api/participants`, `/api/shifts`, `/ui`).
+- [x] **GitHub Actions** workflow (pytest + ruff on push/PR).
+- [ ] Add tests for **`PATCH /api/shifts`** and **`domain.py`** helpers.
 
 ## Tooling
 
-- [ ] Add **Ruff** for lint (and optionally format): config file, `requirements-dev.txt` or `[project.optional-dependencies]`, document run command in `AGENTS.md` or README snippet.
+- [x] **Ruff** in `pyproject.toml` + `backend/requirements-dev.txt`; run `ruff check …` (see QUICKSTART).
+- [ ] Optional: `ruff format`, stricter rules, or pre-commit hook.
 
 ## Hosting / production (review next)
 

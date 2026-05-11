@@ -1,9 +1,8 @@
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
-import sqlite3
-
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Asia/Jerusalem")
@@ -34,8 +33,8 @@ def slot_specs_for_operational_date(operational_date: date) -> list[SlotSpec]:
     """
     One operational day: Jerusalem [D 08:00, D+1 08:00).
 
-    IL: 08–24 (same calendar date as D for afternoon/evening); NA: after midnight until 08:00,
-    still attributed to operational_date D (calendar may be D+1).
+    IL: 08–24 on calendar D (afternoon/evening); NA: after midnight until 08:00,
+    still operational_date D (clock may show D+1).
     """
     d0 = operational_date
     d1 = operational_date + timedelta(days=1)
@@ -108,7 +107,7 @@ def slots_as_rows(operational_date: date) -> list[dict]:
 
 
 def ensure_shift_slots(conn: sqlite3.Connection, horizon_days: int = 14) -> None:
-    """Insert missing operational slots for the next `horizon_days` anchor dates (idempotent)."""
+    """Insert missing shift rows for the next `horizon_days` operational days."""
     now = datetime.now(timezone.utc)
     start = operational_date_for_instant(now)
     for i in range(horizon_days):

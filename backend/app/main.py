@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.append(str(_REPO_ROOT))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.requests import Request
 
-from app.database import connect, init_schema, migrate_schema, participant_count
+from app.database import DatabaseNotInitializedError, connect, participant_count
 from app.domain import REGIONS, SWAP_ELIGIBLE_ROLES
-from app.schedule import ensure_shift_slots, operational_date_for_instant
-from app.seed import seed_if_empty
+from app.schedule import operational_date_for_instant
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _FRONTEND_DIR = _REPO_ROOT / "frontend"
 
 
@@ -58,20 +61,22 @@ def _fetch_shift_joined(conn, shift_id: int):
     ).fetchone()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    conn = connect()
-    try:
-        init_schema(conn)
-        migrate_schema(conn)
-        seed_if_empty(conn)
-        ensure_shift_slots(conn)
-    finally:
-        conn.close()
-    yield
+app = FastAPI(title="Shifts API")
 
 
-app = FastAPI(title="Shifts API", lifespan=lifespan)
+@app.exception_handler(DatabaseNotInitializedError)
+async def database_not_initialized_handler(
+    request: Request, exc: DatabaseNotInitializedError
+):
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": str(exc),
+            "hint": "From the repository root run: python -m db",
+        },
+    )
+
+
 if _FRONTEND_DIR.is_dir():
     app.mount(
         "/ui/static",
@@ -153,7 +158,7 @@ def list_shifts(
     operational_date: str | None = None,
     participant_id: int | None = None,
 ):
-    """Operational shifts: `operational_date` is the anchor D (08:00 Jerusalem → +1 day 08:00)."""
+    """Shifts for operational anchor D (Jerusalem 08:00 through next day 08:00)."""
     conn = connect()
     try:
         base_sql = """

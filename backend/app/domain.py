@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Volunteer roles; extend CHECK constraints in schema.sql if this list grows.
+# Volunteer roles; extend CHECK constraints in db/schema.sql if this list grows.
 VOLUNTEER_ROLES = frozenset({"support", "oncall", "admin"})
 
 # Product rule (current): swap offers are only between support volunteers.

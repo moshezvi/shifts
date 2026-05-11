@@ -72,5 +72,5 @@ Exact implementation should use **stored instants (UTC)** plus **`Asia/Jerusalem
 
 - **Backend**: Python (FastAPI), SQLite file DB (default path under repo `data/`, gitignored).
 - **Seed**: runs only when there are **no** participants yet; deleting the DB file recreates from scratch.
-- **Shift rows**: each row has **`operational_date`** (anchor **D**, Jerusalem **08:00→08:00**), **`region`** (`IL` or `NA`), **`slot_label`**, and **`starts_at` / `ends_at`** stored as **UTC ISO strings**. Slots are generated from `Asia/Jerusalem` rules in `backend/app/schedule.py`; startup fills a rolling window via **`ensure_shift_slots`**.
+- **Shift rows**: each row has **`operational_date`** (anchor **D**, Jerusalem **08:00→08:00**), **`region`** (`IL` or `NA`), **`slot_label`**, and **`starts_at` / `ends_at`** stored as **UTC ISO strings**. Slots are generated from `Asia/Jerusalem` rules in `backend/app/schedule.py`; **`python -m db`** (or repeated bootstrap) fills a rolling horizon via **`ensure_shift_slots`**.
 - **Long-form truths** live here; **short agent constraints** live in `AGENTS.md` at the repo root.
