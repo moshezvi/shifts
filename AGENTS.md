@@ -2,6 +2,8 @@
 
 Concise instructions for AI assistants and humans automating work here. **Domain decisions and scheduling semantics** live in `docs/shifts-domain.md` — read that file before changing product behavior; avoid duplicating long prose here.
 
+**Planned work** is tracked in **`docs/TODO.md`** (seed scale-up, multi-assignee shifts, tests, Ruff).
+
 ## Stack and layout
 
 - **Backend**: Python + FastAPI under `backend/app/`.
@@ -11,6 +13,7 @@ Concise instructions for AI assistants and humans automating work here. **Domain
 ## Encoding and text
 
 - Treat everything as **UTF-8**. Hebrew names and labels are normal `str` / DB `TEXT`; JSON responses must remain Unicode-safe (`charset=utf-8` on HTTP).
+- Hebrew **role** wording in the UI is defined in **`docs/shifts-domain.md`** (סייע/סייעת, כונן/כוננית, מנהל/מנהלת); use **`frontend/static/role-labels.js`** for dropdown copy.
 
 ## Domain constants
 
@@ -21,6 +24,7 @@ Concise instructions for AI assistants and humans automating work here. **Domain
 ## Time and shifts
 
 - Operational boundaries and slot lengths are defined in **`docs/shifts-domain.md`** (anchor **`Asia/Jerusalem`**, 08:00→08:00 operational day, IL→NA handoff rules).
+- **`backend/app/schedule.py`** generates slot specs and fills **`shift`** rows (`operational_date`, `region`, `slot_label`, UTC **`starts_at`/`ends_at`**).
 - Implement times as **timezone-aware instants** (store UTC or unambiguous offsets; interpret/display in **`Asia/Jerusalem`**).
 
 ## Change discipline

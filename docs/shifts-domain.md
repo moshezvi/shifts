@@ -23,6 +23,18 @@ Volunteers work **monthly shifts** (often about once a week). The system should 
 
 Human-readable labels (e.g. Hebrew role names) belong in the UI, not necessarily in stored codes.
 
+### Hebrew UI terminology (roles)
+
+Use these in UI copy (gender comes from stored **`M` / `F`**):
+
+| Code (`role`) | Male | Female |
+|---------------|------|--------|
+| `support` | סייע | סייעת |
+| `oncall` | כונן | כוננית |
+| `admin` | מנהל | מנהלת |
+
+Avoid **משתמשים** for these roles; prefer role-specific terms (above) or neutral **איש/ת צוות** when referring to any volunteer regardless of role.
+
 ## Operational “shift day” (Israel time)
 
 The group defines a **single operational day** anchored in **`Asia/Jerusalem`**:
@@ -60,4 +72,5 @@ Exact implementation should use **stored instants (UTC)** plus **`Asia/Jerusalem
 
 - **Backend**: Python (FastAPI), SQLite file DB (default path under repo `data/`, gitignored).
 - **Seed**: runs only when there are **no** participants yet; deleting the DB file recreates from scratch.
+- **Shift rows**: each row has **`operational_date`** (anchor **D**, Jerusalem **08:00→08:00**), **`region`** (`IL` or `NA`), **`slot_label`**, and **`starts_at` / `ends_at`** stored as **UTC ISO strings**. Slots are generated from `Asia/Jerusalem` rules in `backend/app/schedule.py`; startup fills a rolling window via **`ensure_shift_slots`**.
 - **Long-form truths** live here; **short agent constraints** live in `AGENTS.md` at the repo root.

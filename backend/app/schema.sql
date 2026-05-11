@@ -14,13 +14,19 @@ CREATE TABLE IF NOT EXISTS participant (
 
 CREATE TABLE IF NOT EXISTS shift (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  label TEXT,
+  operational_date TEXT NOT NULL,
+  region TEXT NOT NULL CHECK (region IN ('IL', 'NA')),
+  slot_label TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
   starts_at TEXT NOT NULL,
   ends_at TEXT NOT NULL,
-  assigned_participant_id INTEGER NOT NULL REFERENCES participant(id),
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  assigned_participant_id INTEGER REFERENCES participant(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (operational_date, slot_label)
 );
 
+CREATE INDEX IF NOT EXISTS idx_shift_operational_date ON shift(operational_date);
+CREATE INDEX IF NOT EXISTS idx_shift_region ON shift(region);
 CREATE INDEX IF NOT EXISTS idx_shift_assigned ON shift(assigned_participant_id);
 CREATE INDEX IF NOT EXISTS idx_shift_starts ON shift(starts_at);
 

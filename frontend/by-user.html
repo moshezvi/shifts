@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>משמרות — לפי איש/ת צוות</title>
+    <link rel="stylesheet" href="/ui/static/style.css" />
+    <script src="/ui/static/role-labels.js"></script>
+  </head>
+  <body>
+    <nav>
+      <a href="/ui">השבוע</a>
+      <a href="/ui/by-user">לפי איש/ת צוות</a>
+    </nav>
+    <h1>משמרות לפי איש/ת צוות</h1>
+    <label for="user">בחר איש/ת צוות</label>
+    <button type="button" id="refresh" title="טען מחדש מהשרת">רענן</button>
+    <br />
+    <select id="user">
+      <option value="">—</option>
+    </select>
+    <p class="muted">
+      טווח: 42 ימים תפעוליים קדימה · רק משמרות <strong>עם שיבוץ</strong> מוצגות.
+      שיבוץ מהדף <a href="/ui">השבוע</a> אמור להופיע כאן לאחר בחירת אותו אדם (או
+      לחיצה על «רענן»).
+    </p>
+    <p id="status"></p>
+    <table id="tbl" hidden>
+      <thead>
+        <tr>
+          <th>תאריך תפעולי</th>
+          <th>חלון</th>
+          <th>אזור</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <script>
+      const sel = document.getElementById("user");
+      const refreshBtn = document.getElementById("refresh");
+      const status = document.getElementById("status");
+      const tbody = document.getElementById("tbody");
+      const tbl = document.getElementById("tbl");
+
+      async function loadUsers() {
+        const res = await fetch("/api/participants");
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        for (const p of data.participants) {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent =
+            p.display_name +
+            " (" +
+            roleLabelHe(p.role, p.gender) +
+            ", " +
+            p.region +
+            ")";
+          sel.appendChild(opt);
+        }
+      }
+
+      async function loadShifts() {
+        const id = sel.value;
+        tbody.replaceChildren();
+        tbl.hidden = true;
+        if (!id) {
+          status.textContent = "בחר איש/ת צוות.";
+          return;
+        }
+        status.textContent = "טוען…";
+        try {
+          const res = await fetch(
+            "/api/shifts?days=42&participant_id=" + encodeURIComponent(id)
+          );
+          if (!res.ok) throw new Error(res.statusText);
+          const data = await res.json();
+          for (const s of data.shifts) {
+            const tr = document.createElement("tr");
+            tr.innerHTML =
+              "<td>" +
+              s.operational_date +
+              "</td>" +
+              "<td>" +
+              s.slot_label +
+              "</td>" +
+              "<td>" +
+              s.region +
+              "</td>";
+            tbody.appendChild(tr);
+          }
+          const n = data.shifts.length;
+          if (n === 0) {
+            status.textContent =
+              "אין משמרות משובצות לאיש/ת הצוות הזה בטווח.";
+          } else {
+            status.textContent =
+              "נמצאו " +
+              n +
+              " משמרות משובצות בטווח (42 ימים תפעוליים קדימה).";
+          }
+          tbl.hidden = false;
+        } catch (e) {
+          status.innerHTML =
+            '<span class="err">שגיאה: ' + (e.message || e) + "</span>";
+        }
+      }
+
+      sel.addEventListener("change", loadShifts);
+      refreshBtn.addEventListener("click", function () {
+        if (sel.value) loadShifts();
+      });
+      loadUsers().catch(function (e) {
+        status.innerHTML =
+          '<span class="err">שגיאה בטעינת רשימת הצוות: ' +
+          (e.message || e) +
+          "</span>";
+      });
+    </script>
+  </body>
+</html>
