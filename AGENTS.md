@@ -4,6 +4,8 @@ Concise instructions for AI assistants and humans automating work here. **Domain
 
 **Planned work** is tracked in **`docs/TODO.md`** (seed scale-up, multi-assignee shifts, tests, Ruff).
 
+**Local run / restart:** **`docs/QUICKSTART.md`** (venv, `uvicorn`, URLs, DB reset).
+
 ## Stack and layout
 
 - **Backend**: Python + FastAPI under `backend/app/`.
