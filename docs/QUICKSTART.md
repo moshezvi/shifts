@@ -79,6 +79,24 @@ ruff check backend/app db backend/tests
 
 CI (`.github/workflows/ci.yml`) runs **pytest** and **ruff** on push/PR to `main`.
 
+## Optional: synthetic shift assignments (demo data)
+
+From repo root (DB must exist; see **`python -m db`**):
+
+```bash
+source backend/.venv/bin/activate
+python scripts/randomize_week_assignments.py --dry-run
+python scripts/randomize_week_assignments.py
+```
+
+Reads **support** volunteers and **shift** rows from SQLite, then picks a random same-region volunteer per slot (`--days` controls how many operational days from today’s anchor; default **7**). `--dry-run` prints without writing; `--seed 42` for reproducible picks; `--only-unassigned` skips filled slots; `--clear-first` clears the whole window then refills.
+
+More demo volunteers (defaults **50** IL + **30** NA support inserts): **`python scripts/seed_random_supporters.py`** (`--dry-run`, `--il` / `--na`).
+
+Full reset for **May 10–23, 2026** (empty shifts + random fills): **`./scripts/rebuild_demo_two_weeks.sh`** from repo root (see **`scripts/README.md`**).
+
+Bulk API: **`PATCH /api/shifts/bulk`** with JSON `{"assignments": [{"shift_id": 1, "assigned_participant_id": 2}, ...]}` (transaction, all-or-nothing).
+
 ## Optional env
 
 ```bash

@@ -1,0 +1,26 @@
+---
+description: Planning steward — sync TODO and docs when tasks complete; read before big changes
+alwaysApply: true
+---
+
+# Planning steward
+
+You share responsibility for **backlog accuracy** and **docs staying true to the product**.
+
+## Before non-trivial work
+
+Skim **`docs/TODO.md`** and **`docs/shifts-domain.md`** so implementation matches stated direction.
+
+## When you finish a task
+
+1. **`docs/TODO.md`** — If the work fulfills, supersedes, or cancels a line: mark **`[x]`**, **delete** obsolete bullets, or **rewrite** the item so it still makes sense. Do not leave stale checkboxes that claim work is open when it is done.
+2. **Docs** — If behavior, API, scripts, or setup changed: update **`docs/shifts-domain.md`**, **`docs/QUICKSTART.md`**, or **`scripts/README.md`** in the **same change** when a reader would be misled otherwise.
+3. **`AGENTS.md`** — If the opening one-line summary of planned work no longer matches `docs/TODO.md`, update that sentence.
+
+## When the user announces “stage complete” / ready to commit / push
+
+If they say a **stage is done** and they are **ready to commit and push** (or equivalent intent—see **`AGENTS.md` → *Stage complete***), you **must apply** the checklist above **in file edits** in that turn: refresh **`docs/TODO.md`**, **`docs/shifts-domain.md`**, **`docs/QUICKSTART.md`**, **`scripts/README.md`**, and **`AGENTS.md`** as needed. If after reading the files nothing is stale, state that clearly. The **gap reviewer** rule runs its own pass in parallel—do not skip your steward edits waiting for them.
+
+## Scope
+
+**Maintenance only:** do not add new roadmap items to the **main** sections of `docs/TODO.md` unless the user asked. The **`## Captured gaps (auto)`** subsection is fed by the **gap reviewer** rule—dedupe, reword, or check off those lines when done. Full role: **`AGENTS.md`** (*Planning steward*).

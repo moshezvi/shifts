@@ -12,12 +12,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.requests import Request
 
 from app.database import DatabaseNotInitializedError, connect, participant_count
 from app.domain import REGIONS, SWAP_ELIGIBLE_ROLES
-from app.schedule import operational_date_for_instant
+from app.schedule import calendar_week_range_sun_sat, operational_date_for_instant
+from app.shift_assignment import set_shift_assignment
 
 _FRONTEND_DIR = _REPO_ROOT / "frontend"
 
@@ -26,6 +27,19 @@ class ShiftAssignmentBody(BaseModel):
     """Set to null to unassign."""
 
     assigned_participant_id: int | None = None
+
+
+class BulkShiftAssignmentItem(BaseModel):
+    shift_id: int
+    assigned_participant_id: int | None = None
+
+
+class BulkShiftAssignmentsBody(BaseModel):
+    assignments: list[BulkShiftAssignmentItem] = Field(
+        ...,
+        max_length=2000,
+        description="Each item updates one shift; all succeed or none (transaction).",
+    )
 
 
 def _shift_row_to_dict(r) -> dict:
@@ -157,8 +171,19 @@ def list_shifts(
     days: int = 7,
     operational_date: str | None = None,
     participant_id: int | None = None,
+    week_offset: int | None = None,
 ):
-    """Shifts for operational anchor D (Jerusalem 08:00 through next day 08:00)."""
+    """
+    Shifts for operational anchor D (Jerusalem 08:00 through next day 08:00).
+
+    Query modes (first match wins):
+
+    - ``operational_date=YYYY-MM-DD`` — that operational day only.
+    - ``week_offset`` (integer, e.g. 0=this civil week, 1=next, -1=previous) —
+      Sunday–Saturday range in **Asia/Jerusalem** civil calendar (operational_date
+      strings match those calendar dates). Ignores ``days``.
+    - Otherwise ``days`` (1–60) from the current instant's operational anchor.
+    """
     conn = connect()
     try:
         base_sql = """
@@ -168,6 +193,8 @@ def list_shifts(
             FROM shift s
             LEFT JOIN participant p ON p.id = s.assigned_participant_id
             """
+        extra: dict = {}
+
         if operational_date:
             try:
                 anchor = date.fromisoformat(operational_date)
@@ -195,10 +222,14 @@ def list_shifts(
                     """,
                     (anchor.isoformat(),),
                 ).fetchall()
-        else:
-            d = min(max(days, 1), 60)
-            start = operational_date_for_instant(datetime.now(timezone.utc))
-            end = start + timedelta(days=d - 1)
+        elif week_offset is not None:
+            start, end = calendar_week_range_sun_sat(week_offset)
+            start_s, end_s = start.isoformat(), end.isoformat()
+            extra = {
+                "week_start": start_s,
+                "week_end": end_s,
+                "week_offset": week_offset,
+            }
             if participant_id is not None:
                 rows = conn.execute(
                     base_sql
@@ -207,7 +238,7 @@ def list_shifts(
                       AND s.assigned_participant_id = ?
                     ORDER BY s.operational_date ASC, s.sort_order ASC
                     """,
-                    (start.isoformat(), end.isoformat(), participant_id),
+                    (start_s, end_s, participant_id),
                 ).fetchall()
             else:
                 rows = conn.execute(
@@ -216,11 +247,62 @@ def list_shifts(
                     WHERE s.operational_date >= ? AND s.operational_date <= ?
                     ORDER BY s.operational_date ASC, s.sort_order ASC
                     """,
-                    (start.isoformat(), end.isoformat()),
+                    (start_s, end_s),
+                ).fetchall()
+        else:
+            d = min(max(days, 1), 60)
+            start = operational_date_for_instant(datetime.now(timezone.utc))
+            end = start + timedelta(days=d - 1)
+            start_s, end_s = start.isoformat(), end.isoformat()
+            if participant_id is not None:
+                rows = conn.execute(
+                    base_sql
+                    + """
+                    WHERE s.operational_date >= ? AND s.operational_date <= ?
+                      AND s.assigned_participant_id = ?
+                    ORDER BY s.operational_date ASC, s.sort_order ASC
+                    """,
+                    (start_s, end_s, participant_id),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    base_sql
+                    + """
+                    WHERE s.operational_date >= ? AND s.operational_date <= ?
+                    ORDER BY s.operational_date ASC, s.sort_order ASC
+                    """,
+                    (start_s, end_s),
                 ).fetchall()
 
+        payload = {"shifts": [_shift_row_to_dict(r) for r in rows], **extra}
         return JSONResponse(
-            content={"shifts": [_shift_row_to_dict(r) for r in rows]},
+            content=payload,
+            media_type="application/json; charset=utf-8",
+        )
+    finally:
+        conn.close()
+
+
+@app.patch("/api/shifts/bulk")
+def bulk_assign_shifts(body: BulkShiftAssignmentsBody):
+    """
+    Apply many assignment updates in one transaction (all-or-nothing).
+    PATCH fits partial updates to existing shift rows; body lists explicit changes only.
+    """
+    conn = connect()
+    try:
+        conn.execute("BEGIN")
+        try:
+            for item in body.assignments:
+                set_shift_assignment(conn, item.shift_id, item.assigned_participant_id)
+        except ValueError as exc:
+            conn.execute("ROLLBACK")
+            code = 404 if "shift not found" in str(exc).lower() else 400
+            raise HTTPException(status_code=code, detail=str(exc)) from exc
+        conn.execute("COMMIT")
+        ids = [a.shift_id for a in body.assignments]
+        return JSONResponse(
+            content={"updated": len(body.assignments), "shift_ids": ids},
             media_type="application/json; charset=utf-8",
         )
     finally:
@@ -232,46 +314,11 @@ def assign_shift(shift_id: int, body: ShiftAssignmentBody):
     """Assign or unassign a volunteer to a shift slot. Region must match (IL/NA)."""
     conn = connect()
     try:
-        meta = conn.execute(
-            "SELECT id, region FROM shift WHERE id = ?",
-            (shift_id,),
-        ).fetchone()
-        if meta is None:
-            raise HTTPException(status_code=404, detail="shift not found")
-
-        pid = body.assigned_participant_id
-        if pid is None:
-            conn.execute(
-                "UPDATE shift SET assigned_participant_id = NULL WHERE id = ?",
-                (shift_id,),
-            )
-        else:
-            prow = conn.execute(
-                "SELECT id, region, role FROM participant WHERE id = ?",
-                (pid,),
-            ).fetchone()
-            if prow is None:
-                raise HTTPException(
-                    status_code=400,
-                    detail="participant not found",
-                )
-            if prow["role"] != "support":
-                raise HTTPException(
-                    status_code=400,
-                    detail="only support volunteers can be assigned to shifts",
-                )
-            if prow["region"] != meta["region"]:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        f"participant region {prow['region']} does not match "
-                        f"shift region {meta['region']}"
-                    ),
-                )
-            conn.execute(
-                "UPDATE shift SET assigned_participant_id = ? WHERE id = ?",
-                (pid, shift_id),
-            )
+        try:
+            set_shift_assignment(conn, shift_id, body.assigned_participant_id)
+        except ValueError as exc:
+            code = 404 if "shift not found" in str(exc).lower() else 400
+            raise HTTPException(status_code=code, detail=str(exc)) from exc
 
         out = _fetch_shift_joined(conn, shift_id)
         return JSONResponse(

@@ -1,10 +1,10 @@
 # Backlog / TODO
 
-Parking lot for next sessions. Check items off as you go.
+Parking lot for next sessions. When you **complete** something listed here (or supersede it), update this file and related docs per **`AGENTS.md`** → *Planning steward* and **`.cursor/rules/planning-steward.mdc`**. The **gap reviewer** may append new bullets under **Captured gaps (auto)** on its own (see **`.cursor/rules/logical-gaps.mdc`**). When you announce a **stage complete** / **ready to commit and push**, both roles should refresh this file and other docs in the **same** change—see **`AGENTS.md` → *Stage complete***.
 
 ## Seed / participants
 
-- [ ] Expand seed data to roughly **30 supporters** in **IL** and **~10** additional supporters in **NA** (order-of-magnitude roster).
+- [x] Large **synthetic** roster path: **`scripts/seed_random_supporters.py`** (defaults 50 IL / 30 NA, Hebrew names, **`--replace-synth`**). Optional: fold similar sizes into **`db` seed** if every fresh DB should start big without running the script.
 - [ ] Keep a deliberate **M/F split** among supporters (document rough ratio in seed comments if helpful).
 
 ## Scheduling model
@@ -16,7 +16,8 @@ Parking lot for next sessions. Check items off as you go.
 - [x] **Unit tests** for `schedule.py` (operational slots, IL/NA, anchor dates).
 - [x] **Smoke tests** for HTTP API (`/health`, `/api/participants`, `/api/shifts`, `/ui`).
 - [x] **GitHub Actions** workflow (pytest + ruff on push/PR).
-- [ ] Add tests for **`PATCH /api/shifts`** and **`domain.py`** helpers.
+- [x] Tests for **`PATCH /api/shifts`** (single assign) and **`PATCH /api/shifts/bulk`** (success, 404, atomic rollback).
+- [ ] Add tests for **`domain.py`** helpers.
 
 ## Tooling
 
@@ -40,10 +41,17 @@ Shortlist to compare when you’re ready to deploy (FastAPI + SQLite file **or**
 
 ## Phase 2 — richer calendar UI
 
-- [ ] Replace / complement table views with a **calendar experience** (month/week, operational-day boundaries, IL/NA coloring, maybe drag-and-drop once multi-assign exists).
+- [x] **Week grid** on **`/ui`**: columns = Jerusalem **Sun–Sat** week (`week_offset` query param), rows = slot template; prev/next week navigation. API: **`GET /api/shifts?week_offset=`** with **`week_start` / `week_end`** metadata.
+- [ ] Month-style calendar, richer visuals, drag-and-drop once multi-assign exists.
 - [ ] Revisit stack then (**Next.js**, **FullCalendar**, or similar) only when requirements are clear — current static pages stay valid until then.
 
 ## Nice-to-have (not blocking)
 
 - [ ] Persist “edit mode” preference (optional `sessionStorage`).
 - [ ] Broader Hebrew copy review with stakeholders.
+
+## Captured gaps (auto)
+
+The **gap reviewer** (`.cursor/rules/logical-gaps.mdc`) may append `- [ ]` lines here when it spots a **concrete** product hole during work—no separate ask from a human required. **Planning steward**: dedupe, reword, move, or check off when fixed; keep this section.
+
+- [ ] **Participant lifecycle**: HTTP API (and optionally UI) to **create / update / delete** participants—or document that roster changes are **seed/scripts only**. Today: list + assign shifts, no participant CRUD.

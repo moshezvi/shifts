@@ -16,6 +16,34 @@ def operational_date_for_instant(when: datetime) -> date:
     return local.date() - timedelta(days=1)
 
 
+def sunday_of_week_containing(local_calendar_date: date) -> date:
+    """
+    Civil week starting Sunday (common in Israel).
+
+    Python weekday: Monday=0 … Sunday=6. Step back to the Sunday that starts this week.
+    """
+    return local_calendar_date - timedelta(days=(local_calendar_date.weekday() + 1) % 7)
+
+
+def calendar_week_range_sun_sat(
+    week_offset: int,
+    *,
+    when: datetime | None = None,
+) -> tuple[date, date]:
+    """
+    Inclusive Sunday..Saturday in Asia/Jerusalem civil calendar.
+
+    ``week_offset`` 0 = the week containing ``when`` (Jerusalem local date),
+    1 = the following week, -1 = the previous week, etc.
+    """
+    if when is None:
+        when = datetime.now(timezone.utc)
+    local_date = when.astimezone(TZ).date()
+    sunday = sunday_of_week_containing(local_date) + timedelta(days=7 * week_offset)
+    saturday = sunday + timedelta(days=6)
+    return sunday, saturday
+
+
 def _utc_iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -106,13 +134,15 @@ def slots_as_rows(operational_date: date) -> list[dict]:
     return rows
 
 
-def ensure_shift_slots(conn: sqlite3.Connection, horizon_days: int = 14) -> None:
-    """Insert missing shift rows for the next `horizon_days` operational days."""
-    now = datetime.now(timezone.utc)
-    start = operational_date_for_instant(now)
-    for i in range(horizon_days):
-        od = start + timedelta(days=i)
-        for row in slots_as_rows(od):
+def ensure_shift_slots_for_operational_range(
+    conn: sqlite3.Connection, first: date, last: date
+) -> None:
+    """Insert missing shift rows for each operational date from `first` through `last` inclusive."""
+    if last < first:
+        raise ValueError(f"last {last} must be >= first {first}")
+    d = first
+    while d <= last:
+        for row in slots_as_rows(d):
             conn.execute(
                 """
                 INSERT OR IGNORE INTO shift (
@@ -129,3 +159,12 @@ def ensure_shift_slots(conn: sqlite3.Connection, horizon_days: int = 14) -> None
                     row["ends_at"],
                 ),
             )
+        d += timedelta(days=1)
+
+
+def ensure_shift_slots(conn: sqlite3.Connection, horizon_days: int = 14) -> None:
+    """Insert missing shift rows for the next `horizon_days` operational days from now."""
+    now = datetime.now(timezone.utc)
+    start = operational_date_for_instant(now)
+    end = start + timedelta(days=max(horizon_days, 1) - 1)
+    ensure_shift_slots_for_operational_range(conn, start, end)

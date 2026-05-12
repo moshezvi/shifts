@@ -9,14 +9,15 @@ Does not use `app.database.connect()` — that helper refuses to create a missin
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 
 from app.database import database_path
-from app.schedule import ensure_shift_slots
+from app.schedule import ensure_shift_slots, ensure_shift_slots_for_operational_range
 from app.seed import seed_if_empty
 from db.migrations import apply_ddl, apply_migrations
 
 
-def _connect_create_if_needed() -> sqlite3.Connection:
+def create_bootstrap_connection() -> sqlite3.Connection:
     path = database_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, isolation_level=None)
@@ -29,19 +30,28 @@ def init_database(
     conn: sqlite3.Connection,
     *,
     horizon_days: int = 14,
+    operational_date_range: tuple[date, date] | None = None,
 ) -> None:
     """
     Idempotent: apply DDL, migrations, seed if empty, then fill shift rows.
+
+    If ``operational_date_range`` is set ``(first, last)`` inclusive, inserts slots for
+    those operational dates only (ignores ``horizon_days``). Otherwise uses
+    ``ensure_shift_slots`` from the current instant's operational anchor.
     """
     apply_ddl(conn)
     apply_migrations(conn)
     seed_if_empty(conn)
-    ensure_shift_slots(conn, horizon_days=horizon_days)
+    if operational_date_range is not None:
+        lo, hi = operational_date_range
+        ensure_shift_slots_for_operational_range(conn, lo, hi)
+    else:
+        ensure_shift_slots(conn, horizon_days=horizon_days)
 
 
 def main() -> None:
     path = database_path()
-    conn = _connect_create_if_needed()
+    conn = create_bootstrap_connection()
     try:
         init_database(conn)
     finally:

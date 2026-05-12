@@ -9,10 +9,16 @@
   </head>
   <body>
     <nav>
-      <a href="/ui">השבוע</a>
+      <a href="/ui?week_offset=0">השבוע</a>
       <a href="/ui/by-user">לפי איש/ת צוות</a>
     </nav>
     <h1>משמרות השבוע</h1>
+    <div class="week-nav">
+      <a class="btn-link" id="navPrev" href="#">שבוע קודם</a>
+      <a class="btn-link" id="navThis" href="/ui?week_offset=0">השבוע</a>
+      <a class="btn-link" id="navNext" href="#">שבוע הבא</a>
+      <span id="weekLabel" class="muted week-label"></span>
+    </div>
     <div class="toolbar">
       <button type="button" id="modeToggle" aria-pressed="false">
         מצב עריכה
@@ -22,35 +28,109 @@
       >
     </div>
     <p class="muted">
-      ימים תפעוליים (08:00 ירושלים) החל מהיום התפעולי הנוכחי · 7 ימים · ניתן
-      לשבץ רק <strong>סייע</strong> או <strong>סייעת</strong> (לפי מגדר) באותו אזור
-      (IL / NA). שיבוצים מופיעים גם ב־<a href="/ui/by-user">לפי איש/ת צוות</a>
-      (טווח ארוך יותר שם).
+      שבות לפי לוח שנה בישראל: <strong>ראשון–שבת</strong> (Asia/Jerusalem). עמודות =
+      תאריכים תפעוליים (08:00–08:00 ירושלים). שורות = משמרות. ניתן לשבץ רק
+      <strong>סייע</strong> / <strong>סייעת</strong> (לפי מגדר) באותו אזור (IL / NA).
     </p>
     <p id="status">טוען…</p>
-    <table id="tbl" hidden>
-      <thead>
-        <tr>
-          <th>תאריך תפעולי</th>
-          <th>חלון</th>
-          <th>אזור</th>
-          <th>שיבוץ</th>
-        </tr>
-      </thead>
-      <tbody id="tbody"></tbody>
-    </table>
+    <div class="table-scroll" hidden id="scrollWrap">
+      <table class="week-grid" id="tbl" hidden>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
 
     <script>
       var editMode = false;
       var cacheShifts = null;
       var cacheParticipants = null;
+      var cacheWeekMeta = null;
+      var weekOffset = 0;
+
+      function parseWeekOffsetFromUrl() {
+        var q = new URLSearchParams(window.location.search || "");
+        var raw = q.get("week_offset");
+        if (raw === null || raw === "") return 0;
+        var n = parseInt(raw, 10);
+        return isNaN(n) ? 0 : n;
+      }
+
+      function calendarPlusDays(iso, add) {
+        var parts = iso.split("-").map(Number);
+        var t = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + add, 12, 0, 0));
+        return t.toISOString().slice(0, 10);
+      }
+
+      function enumerateWeekDates(startIso, endIso) {
+        var out = [];
+        var cur = startIso;
+        while (cur <= endIso) {
+          out.push(cur);
+          cur = calendarPlusDays(cur, 1);
+        }
+        return out;
+      }
+
+      function dayHeaderHe(iso) {
+        var parts = iso.split("-").map(Number);
+        var dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 9, 0, 0));
+        return new Intl.DateTimeFormat("he-IL", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          timeZone: "Asia/Jerusalem",
+        }).format(dt);
+      }
+
+      function findShift(shifts, dateIso, sortOrder, region) {
+        for (var i = 0; i < shifts.length; i++) {
+          var s = shifts[i];
+          if (
+            s.operational_date === dateIso &&
+            s.sort_order === sortOrder &&
+            s.region === region
+          ) {
+            return s;
+          }
+        }
+        return null;
+      }
+
+      function slotRowsTemplate(shifts, weekStart) {
+        var day = shifts.filter(function (s) {
+          return s.operational_date === weekStart;
+        });
+        day.sort(function (a, b) {
+          return a.sort_order - b.sort_order;
+        });
+        if (day.length) return day;
+        var sorted = shifts.slice().sort(function (a, b) {
+          return (
+            a.sort_order - b.sort_order ||
+            String(a.operational_date).localeCompare(String(b.operational_date))
+          );
+        });
+        var seen = {};
+        var out = [];
+        for (var i = 0; i < sorted.length; i++) {
+          var s = sorted[i];
+          var k = s.sort_order + "|" + s.region + "|" + s.slot_label;
+          if (seen[k]) continue;
+          seen[k] = true;
+          out.push(s);
+        }
+        out.sort(function (a, b) {
+          return a.sort_order - b.sort_order;
+        });
+        return out;
+      }
 
       function buildAssignSelect(participants, shift) {
-        const sel = document.createElement("select");
-        const region = shift.region;
-        const selectedId = shift.assigned_participant_id;
+        var sel = document.createElement("select");
+        var region = shift.region;
+        var selectedId = shift.assigned_participant_id;
 
-        const empty = document.createElement("option");
+        var empty = document.createElement("option");
         empty.value = "";
         empty.textContent = "— ללא שיבוץ —";
         sel.appendChild(empty);
@@ -59,7 +139,7 @@
           var p = participants[i];
           if (p.role !== "support") continue;
           if (p.region !== region) continue;
-          const opt = document.createElement("option");
+          var opt = document.createElement("option");
           opt.value = String(p.id);
           opt.textContent =
             p.display_name + " (" + roleLabelHe(p.role, p.gender) + ")";
@@ -80,34 +160,36 @@
         sel.dataset.prev = selectedId != null ? String(selectedId) : "";
 
         sel.addEventListener("change", async function () {
-          const prev = sel.dataset.prev;
-          const raw = sel.value;
+          var prev = sel.dataset.prev;
+          var raw = sel.value;
           sel.dataset.prev = raw;
           try {
-            const body =
+            var body =
               raw === ""
                 ? { assigned_participant_id: null }
                 : { assigned_participant_id: Number(raw) };
-            const res = await fetch("/api/shifts/" + shift.id, {
+            var res = await fetch("/api/shifts/" + shift.id, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(body),
             });
             if (!res.ok) {
-              let msg = res.statusText;
+              var msg = res.statusText;
               try {
-                const err = await res.json();
+                var err = await res.json();
                 if (typeof err.detail === "string") msg = err.detail;
                 else if (Array.isArray(err.detail))
-                  msg = err.detail.map(function (e) {
-                    return e.msg || e;
-                  }).join("; ");
+                  msg = err.detail
+                    .map(function (e) {
+                      return e.msg || e;
+                    })
+                    .join("; ");
               } catch (_) {}
               throw new Error(msg);
             }
-            const json = await res.json();
+            var json = await res.json();
             if (json.shift && cacheShifts) {
-              const sid = json.shift.id;
+              var sid = json.shift.id;
               for (var j = 0; j < cacheShifts.length; j++) {
                 if (cacheShifts[j].id === sid) {
                   cacheShifts[j] = json.shift;
@@ -125,47 +207,79 @@
         return sel;
       }
 
-      function renderTable() {
-        const status = document.getElementById("status");
-        const tbody = document.getElementById("tbody");
-        const tbl = document.getElementById("tbl");
-        const modeToggle = document.getElementById("modeToggle");
-        const modeHint = document.getElementById("modeHint");
+      function renderGrid() {
+        var status = document.getElementById("status");
+        var tbody = document.getElementById("tbody");
+        var thead = document.getElementById("thead");
+        var tbl = document.getElementById("tbl");
+        var scrollWrap = document.getElementById("scrollWrap");
+        var modeToggle = document.getElementById("modeToggle");
+        var modeHint = document.getElementById("modeHint");
+        var weekLabel = document.getElementById("weekLabel");
 
-        if (!cacheShifts || !cacheParticipants) return;
+        if (!cacheShifts || !cacheParticipants || !cacheWeekMeta) return;
 
+        var weekStart = cacheWeekMeta.week_start;
+        var weekEnd = cacheWeekMeta.week_end;
+        var dates = enumerateWeekDates(weekStart, weekEnd);
+
+        weekLabel.textContent =
+          weekStart + " – " + weekEnd + " · week_offset=" + weekOffset;
+
+        document.getElementById("navPrev").href =
+          "/ui?week_offset=" + (weekOffset - 1);
+        document.getElementById("navNext").href =
+          "/ui?week_offset=" + (weekOffset + 1);
+
+        thead.replaceChildren();
+        var hrTop = document.createElement("tr");
+        var corner = document.createElement("th");
+        corner.textContent = "משמרת";
+        hrTop.appendChild(corner);
+        for (var di = 0; di < dates.length; di++) {
+          var th = document.createElement("th");
+          th.textContent = dayHeaderHe(dates[di]) + " (" + dates[di] + ")";
+          hrTop.appendChild(th);
+        }
+        thead.appendChild(hrTop);
+
+        var slotTpl = slotRowsTemplate(cacheShifts, weekStart);
         tbody.replaceChildren();
-        for (var i = 0; i < cacheShifts.length; i++) {
-          const s = cacheShifts[i];
-          const tr = document.createElement("tr");
 
-          const tdDate = document.createElement("td");
-          tdDate.textContent = s.operational_date;
-          tr.appendChild(tdDate);
+        for (var ri = 0; ri < slotTpl.length; ri++) {
+          var tpl = slotTpl[ri];
+          var tr = document.createElement("tr");
+          var thSlot = document.createElement("th");
+          thSlot.scope = "row";
+          thSlot.textContent = tpl.slot_label + " · " + tpl.region;
+          tr.appendChild(thSlot);
 
-          const tdSlot = document.createElement("td");
-          tdSlot.textContent = s.slot_label;
-          tr.appendChild(tdSlot);
-
-          const tdReg = document.createElement("td");
-          tdReg.textContent = s.region;
-          tr.appendChild(tdReg);
-
-          const tdAs = document.createElement("td");
-          if (editMode) {
-            tdAs.appendChild(buildAssignSelect(cacheParticipants, s));
-          } else {
-            tdAs.className = s.assignee ? "" : "unassigned";
-            tdAs.textContent = s.assignee ? s.assignee.display_name : "—";
+          for (var ci = 0; ci < dates.length; ci++) {
+            var td = document.createElement("td");
+            var s = findShift(
+              cacheShifts,
+              dates[ci],
+              tpl.sort_order,
+              tpl.region
+            );
+            if (!s) {
+              td.className = "muted";
+              td.textContent = "—";
+            } else if (editMode) {
+              td.appendChild(buildAssignSelect(cacheParticipants, s));
+            } else {
+              td.className = s.assignee ? "" : "unassigned";
+              td.textContent = s.assignee ? s.assignee.display_name : "—";
+            }
+            tr.appendChild(td);
           }
-          tr.appendChild(tdAs);
-
           tbody.appendChild(tr);
         }
 
         status.textContent =
-          cacheShifts.length === 0 ? "אין משמרות בטווח." : "";
+          cacheShifts.length === 0 ? "אין משמרות בטווח השבוע." : "";
         tbl.hidden = false;
+        scrollWrap.hidden = false;
 
         modeToggle.textContent = editMode ? "צפייה בלבד" : "מצב עריכה";
         modeToggle.setAttribute("aria-pressed", editMode ? "true" : "false");
@@ -176,33 +290,44 @@
       }
 
       async function load() {
-        const status = document.getElementById("status");
-        const tbl = document.getElementById("tbl");
+        var status = document.getElementById("status");
+        var tbl = document.getElementById("tbl");
+        var scrollWrap = document.getElementById("scrollWrap");
+        weekOffset = parseWeekOffsetFromUrl();
         try {
-          const [shRes, pRes] = await Promise.all([
-            fetch("/api/shifts?days=7"),
+          var [shRes, pRes] = await Promise.all([
+            fetch("/api/shifts?week_offset=" + encodeURIComponent(String(weekOffset))),
             fetch("/api/participants"),
           ]);
           if (!shRes.ok) throw new Error(shRes.statusText);
           if (!pRes.ok) throw new Error(pRes.statusText);
-          const data = await shRes.json();
-          const plist = await pRes.json();
+          var data = await shRes.json();
+          var plist = await pRes.json();
           cacheShifts = data.shifts || [];
           cacheParticipants = plist.participants || [];
+          cacheWeekMeta = {
+            week_start: data.week_start,
+            week_end: data.week_end,
+            week_offset: data.week_offset,
+          };
+          if (!data.week_start || !data.week_end) {
+            throw new Error("חסר week_start/week_end מהשרת");
+          }
           editMode = false;
-          renderTable();
+          renderGrid();
         } catch (e) {
           status.innerHTML =
             '<span class="err">שגיאה בטעינה: ' +
             (e.message || e) +
             "</span>";
           tbl.hidden = true;
+          scrollWrap.hidden = true;
         }
       }
 
       document.getElementById("modeToggle").addEventListener("click", function () {
         editMode = !editMode;
-        renderTable();
+        renderGrid();
       });
 
       load();
