@@ -9,8 +9,17 @@ Parking lot for next sessions. When you **complete** something listed here (or s
 
 ## Scheduling model
 
-- [ ] **Next stage:** enforce **at most one shift per volunteer per operational day** (same `operational_date` / Jerusalem 08:00→08:00 anchor): validate on **`PATCH /api/shifts`** and **`PATCH /api/shifts/bulk`**, surface conflicts in UI (at least for now—relax later if policy changes).
+- [x] Enforce **at most one shift per volunteer per operational day** (same `operational_date` / Jerusalem 08:00→08:00 anchor): validate on **`PATCH /api/shifts`** and **`PATCH /api/shifts/bulk`**, surface conflicts in UI (relax later if policy changes).
 - [ ] Support **multiple supporters assigned to the same shift slot** (schema change: likely a junction table `shift_assignment(shift_id, participant_id, …)` instead of a single `assigned_participant_id` on `shift`, plus API/UI updates).
+
+## Long-term product stages
+
+- [ ] Real participant lifecycle: create / update / archive participants and decide how real users authenticate or are administered.
+- [ ] Monthly availability intake: volunteers submit availability for the next month before scheduling starts.
+- [ ] Admin schedule builder: review availability, create a draft monthly schedule, manually adjust assignments, and publish when ready.
+- [ ] Replacement marketplace: assigned volunteers can post a shift for coverage and/or swap after the schedule is published.
+- [ ] Proposal and approval flow: eligible volunteers can offer coverage or a swap; the originator approves one proposal before assignments change.
+- [ ] Notifications: after approval, notify the originator, accepted volunteer, and admin / organizer.
 
 ## Tests
 
@@ -56,3 +65,4 @@ Shortlist to compare when you’re ready to deploy (FastAPI + SQLite file **or**
 The **gap reviewer** (`agents/roles.md`) may append `- [ ]` lines here when it spots a **concrete** product hole during work—no separate ask from a human required. **Planning steward**: dedupe, reword, move, or check off when fixed; keep this section.
 
 - [ ] **Participant lifecycle**: HTTP API (and optionally UI) to **create / update / delete** participants—or document that roster changes are **seed/scripts only**. Today: list + assign shifts, no participant CRUD.
+- [ ] **Week navigation clarity**: make non-current `week_offset` obvious in the UI and provide a clear return-to-current-week state.

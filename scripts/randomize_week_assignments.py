@@ -2,6 +2,7 @@
 """
 Load support volunteers and shift rows from SQLite, then assign each shift a random
 volunteer from the matching region (IL / NA). Handy for demo / synthetic-looking data.
+Within an operational day, each volunteer is picked at most once.
 
 Run from repository root (default DB: data/shifts.db; override with DATABASE_PATH):
 
@@ -105,7 +106,7 @@ def main() -> None:
 
     from app.database import connect, database_path
     from app.schedule import calendar_week_range_sun_sat, operational_date_for_instant
-    from app.shift_assignment import set_shift_assignment
+    from app.shift_assignment import set_shift_assignment, validate_one_shift_per_operational_day
 
     if args.week_offset is not None:
         start, end = calendar_week_range_sun_sat(args.week_offset)
@@ -156,19 +157,39 @@ def main() -> None:
 
         shifts = conn.execute(shift_sql, params).fetchall()
 
+        used_by_operational_date: dict[str, set[int]] = {}
+        if only_unassigned:
+            existing = conn.execute(
+                """
+                SELECT operational_date, assigned_participant_id
+                FROM shift
+                WHERE operational_date >= ? AND operational_date <= ?
+                  AND assigned_participant_id IS NOT NULL
+                """,
+                (start_s, end_s),
+            ).fetchall()
+            for row in existing:
+                used_by_operational_date.setdefault(
+                    str(row["operational_date"]),
+                    set(),
+                ).add(int(row["assigned_participant_id"]))
+
         planned: list[tuple[int, int, str, str, str, str]] = []
         for row in shifts:
             rid = str(row["region"])
-            pool = by_region.get(rid, [])
+            od = str(row["operational_date"])
+            used = used_by_operational_date.setdefault(od, set())
+            pool = [p for p in by_region.get(rid, []) if int(p["id"]) not in used]
             if not pool:
                 print(
                     f"skip shift {row['id']} ({row['operational_date']} {row['slot_label']} "
-                    f"{rid}): no support volunteers in pool",
+                    f"{rid}): no unused support volunteers in pool for that day",
                     file=sys.stderr,
                 )
                 continue
             pick = random.choice(pool)
             pid, pname = int(pick["id"]), str(pick["display_name"])
+            used.add(pid)
             planned.append(
                 (
                     int(row["id"]),
@@ -210,8 +231,17 @@ def main() -> None:
                     """,
                     (start_s, end_s),
                 )
+            validation_pairs = set()
             for sid, pid, _od, _sl, _reg, _pname in planned:
-                set_shift_assignment(conn, sid, pid)
+                pair = set_shift_assignment(conn, sid, pid, validate_daily_limit=False)
+                if pair is not None:
+                    validation_pairs.add(pair)
+            for operational_date, participant_id in validation_pairs:
+                validate_one_shift_per_operational_day(
+                    conn,
+                    operational_date,
+                    participant_id,
+                )
         except ValueError as e:
             conn.execute("ROLLBACK")
             print(f"ERROR: {e}", file=sys.stderr)

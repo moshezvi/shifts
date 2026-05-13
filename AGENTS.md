@@ -6,7 +6,7 @@ Entry point for AI assistants and humans automating work here. `AGENTS.md` is th
 
 **Domain decisions and scheduling semantics** live in **`docs/shifts-domain.md`** — read that file before changing product behavior; avoid duplicating long prose here.
 
-**Planned work** is tracked in **`docs/TODO.md`** (max one shift per volunteer per operational day next; multi-assign shifts, participant CRUD gap, `domain.py` tests; week grid + bulk assign + dev scripts largely done).
+**Planned work** is tracked in **`docs/TODO.md`** (multi-assign shifts, participant CRUD gap, `domain.py` tests, long-term monthly scheduling / replacement marketplace; week grid, bulk assign, one-shift-per-day validation, and dev scripts largely done).
 
 **Planning steward:** When you complete work that matches or closes an item in **`docs/TODO.md`**, treat backlog hygiene as part of the same change. Details: **`agents/roles.md`**.
 

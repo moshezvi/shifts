@@ -12,7 +12,80 @@ Volunteers work **monthly shifts** (often about once a week). The system should 
 4. **Withdraw** is allowed **until approval**. After approval, the arrangement is **final** in the tool (undo happens outside the app, e.g. via the organizer).
 5. After approval, **notify the organizer** (manual channel first — email / Slack webhook / SMS later). Automation may come later.
 
+## Target workflow: monthly scheduling and replacements
+
+The long-term product has two connected workflows:
+
+1. Build and publish the monthly schedule from volunteer availability.
+2. Let volunteers resolve conflicts after publication through a replacement /
+   swap marketplace.
+
+These concepts should stay separate in the product model:
+
+- **Availability**: a volunteer's stated willingness or ability to work specific
+  dates / slots before the monthly schedule is built.
+- **Assignment**: the actual published schedule outcome for a shift slot.
+- **Replacement request**: an assigned volunteer says they cannot work a
+  published shift and asks for coverage and/or a swap.
+- **Proposal**: another eligible volunteer offers to cover the shift or swap one
+  of their own assigned shifts.
+- **Approval**: the originator accepts one proposal; only then should the real
+  assignment change.
+
+### Monthly scheduling target
+
+Before each month, volunteers submit availability for the upcoming month
+(expected operating cadence: around the 20th of the preceding month).
+
+Availability is scheduling input, not an assignment. The scheduler/admin should
+eventually be able to:
+
+1. Review availability by person, week, day, and shift slot.
+2. Create a draft monthly schedule from available volunteers.
+3. Manually adjust the draft.
+4. Publish the schedule when ready.
+
+Later optimization rules may include minimum availability expectations, fair
+distribution, weekly coverage goals, and weekend coverage goals. Those rules are
+out of scope until explicitly specified.
+
+### Replacement marketplace target
+
+After a schedule is published, an assigned volunteer may open a replacement
+request for one of their shifts.
+
+Supported request / proposal paths:
+
+- **Coverage**: another eligible volunteer offers to take the shift.
+- **Swap**: another eligible volunteer offers to trade one of their assigned
+  shifts for the originator's shift.
+
+For both paths, proposals are optional suggestions until approved by the
+originator. The app should not mutate the published schedule when a proposal is
+created. Once the originator approves one proposal:
+
+1. The assignment change is applied.
+2. Competing proposals are no longer active.
+3. The originator, the accepted volunteer, and the admin / organizer are
+   notified.
+4. The request becomes final in the tool.
+
 ## People and attributes
+
+`participant` is the app's local scheduling participant record. Real users may
+eventually come from an external roster, identity provider, or another database,
+but scheduling tables should still reference the local `participant.id`.
+
+This app owns scheduling facts: availability, assignments, replacement requests,
+proposals, approvals, and notification history. An external system may own
+identity facts such as login credentials, canonical contact details, or broader
+organization membership.
+
+Future roster sync should treat `participant` as a local projection / snapshot
+of scheduling-relevant people, likely with fields such as `external_source`,
+`external_id`, `synced_at`, and `archived_at`. Historical scheduling records
+should remain readable even if a person later disappears from the external
+source.
 
 - **Display names** may be **Hebrew** (UTF-8 end-to-end: files, JSON, SQLite `TEXT`, HTTP `charset=utf-8`).
 - **Role** (stored as codes): `support` | `oncall` | `admin`.
@@ -67,6 +140,16 @@ Within that same **08:00→08:00** window:
 2. Then the **next** operational day begins again with **IL** leading the **08–10** block.
 
 Exact implementation should use **stored instants (UTC)** plus **`Asia/Jerusalem`** for interpretation and labeling.
+
+### Assignment limit within an operational day
+
+A support volunteer may be assigned to **at most one shift** within a single
+operational day (`shift.operational_date`). The same volunteer may be assigned
+again on a different operational date.
+
+For bulk updates, validity is based on the final assignment state, not payload
+order. Moving a volunteer from one shift to another on the same operational date
+is valid when the final state leaves them assigned to only one shift.
 
 ## Technical notes (current repo)
 

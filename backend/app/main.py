@@ -18,7 +18,11 @@ from starlette.requests import Request
 from app.database import DatabaseNotInitializedError, connect, participant_count
 from app.domain import REGIONS, SWAP_ELIGIBLE_ROLES
 from app.schedule import calendar_week_range_sun_sat, operational_date_for_instant
-from app.shift_assignment import set_shift_assignment
+from app.shift_assignment import (
+    AssignmentConflictError,
+    set_shift_assignment,
+    validate_one_shift_per_operational_day,
+)
 
 _FRONTEND_DIR = _REPO_ROOT / "frontend"
 
@@ -293,8 +297,25 @@ def bulk_assign_shifts(body: BulkShiftAssignmentsBody):
     try:
         conn.execute("BEGIN")
         try:
+            validation_pairs = set()
             for item in body.assignments:
-                set_shift_assignment(conn, item.shift_id, item.assigned_participant_id)
+                pair = set_shift_assignment(
+                    conn,
+                    item.shift_id,
+                    item.assigned_participant_id,
+                    validate_daily_limit=False,
+                )
+                if pair is not None:
+                    validation_pairs.add(pair)
+            for operational_date, participant_id in validation_pairs:
+                validate_one_shift_per_operational_day(
+                    conn,
+                    operational_date,
+                    participant_id,
+                )
+        except AssignmentConflictError as exc:
+            conn.execute("ROLLBACK")
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             conn.execute("ROLLBACK")
             code = 404 if "shift not found" in str(exc).lower() else 400
@@ -316,6 +337,8 @@ def assign_shift(shift_id: int, body: ShiftAssignmentBody):
     try:
         try:
             set_shift_assignment(conn, shift_id, body.assigned_participant_id)
+        except AssignmentConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             code = 404 if "shift not found" in str(exc).lower() else 400
             raise HTTPException(status_code=code, detail=str(exc)) from exc

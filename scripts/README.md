@@ -2,9 +2,21 @@
 
 Run from the **repository root** unless noted. Use `backend/.venv` and ensure the DB exists (`python -m db`).
 
+## Which script should I use?
+
+| Goal | Command |
+|------|---------|
+| Normal non-destructive DB init / migration | `python -m db` |
+| Clear broken shifts but keep participants | `python scripts/clear_shifts.py --yes --reinitialize` |
+| Fill existing shifts with fake assignments | `python scripts/randomize_week_assignments.py --week-offset 0 --clear-first` |
+| Add synthetic support volunteers | `python scripts/seed_random_supporters.py` |
+| Full destructive demo reset, including participants | `./scripts/rebuild_demo_two_weeks.sh` |
+| Lower-level fixed-date demo DB init | `python scripts/rebuild_two_weeks_db.py --start YYYY-MM-DD --end YYYY-MM-DD` |
+
 ## `randomize_week_assignments.py`
 
 Fills shift slots with **random support volunteers** (IL shifts → IL support, NA → NA), reading participants and shifts from SQLite.
+Within an operational day, each volunteer is picked at most once.
 
 ```bash
 source backend/.venv/bin/activate
@@ -32,6 +44,22 @@ python scripts/seed_random_supporters.py
 python scripts/seed_random_supporters.py --il 60 --na 40 --seed 7
 python scripts/seed_random_supporters.py --replace-synth
 ```
+
+## `clear_shifts.py`
+
+Nuclear shift reset that **preserves participants**. It deletes shift-family
+rows (`offer`, `coverage_request`, `shift`) and can optionally recreate empty
+shift rows through the normal bootstrap path.
+
+```bash
+python scripts/clear_shifts.py --dry-run
+python scripts/clear_shifts.py --yes
+python scripts/clear_shifts.py --yes --reinitialize
+```
+
+Use **`--reinitialize`** when you want to clear broken shifts/assignments and
+immediately refill the default rolling shift horizon. Existing participants stay
+in place because the seed runs only when the participant table is empty.
 
 ## `rebuild_demo_two_weeks.sh`
 

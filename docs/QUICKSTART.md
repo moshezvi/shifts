@@ -97,6 +97,9 @@ Full reset for **May 10–23, 2026** (empty shifts + random fills): **`./scripts
 
 Bulk API: **`PATCH /api/shifts/bulk`** with JSON `{"assignments": [{"shift_id": 1, "assigned_participant_id": 2}, ...]}` (transaction, all-or-nothing).
 
+Clear only shifts while preserving participants:
+**`python scripts/clear_shifts.py --yes --reinitialize`** from repo root.
+
 ## Optional env
 
 ```bash

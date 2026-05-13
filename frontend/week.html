@@ -129,6 +129,20 @@
         var sel = document.createElement("select");
         var region = shift.region;
         var selectedId = shift.assigned_participant_id;
+        var assignedOnDay = {};
+        if (cacheShifts) {
+          for (var si = 0; si < cacheShifts.length; si++) {
+            var other = cacheShifts[si];
+            if (other.id === shift.id) continue;
+            if (other.operational_date !== shift.operational_date) continue;
+            if (
+              other.assigned_participant_id !== null &&
+              other.assigned_participant_id !== undefined
+            ) {
+              assignedOnDay[String(other.assigned_participant_id)] = true;
+            }
+          }
+        }
 
         var empty = document.createElement("option");
         empty.value = "";
@@ -143,6 +157,13 @@
           opt.value = String(p.id);
           opt.textContent =
             p.display_name + " (" + roleLabelHe(p.role, p.gender) + ")";
+          if (
+            assignedOnDay[String(p.id)] &&
+            (selectedId === null || selectedId === undefined || p.id !== selectedId)
+          ) {
+            opt.disabled = true;
+            opt.textContent += " — משובץ/ת כבר ביום זה";
+          }
           if (
             selectedId !== null &&
             selectedId !== undefined &&
@@ -196,6 +217,7 @@
                   break;
                 }
               }
+              renderGrid();
             }
           } catch (e) {
             alert("שגיאה בשמירה: " + (e.message || e));
