@@ -49,6 +49,33 @@ Later optimization rules may include minimum availability expectations, fair
 distribution, weekly coverage goals, and weekend coverage goals. Those rules are
 out of scope until explicitly specified.
 
+### Availability intake target
+
+Availability entry should be participant-context aware. In the first practical
+version, the screen may simply show the participant name at the top; later this
+context should come from authentication / session state.
+
+The participant should be able to view a week or month and mark which generated
+shift slots they are available for. The available slot list should be filtered by
+the participant's scheduling region:
+
+- `IL` participants see IL-relevant slots.
+- `NA` participants see NA-relevant slots.
+
+Availability records the participant's willingness / ability to work a slot; it
+does not assign the participant to that slot.
+
+The canonical schedule remains anchored in **`Asia/Jerusalem`**. Participant
+timezone is display-only and must not change operational dates, slot ownership,
+or scheduling rules. If a participant has a local timezone, the availability UI
+should show both:
+
+- the canonical Israel operational time / slot label, and
+- the participant's local time for that same stored instant.
+
+Example: an NA participant may see an overnight Israel slot with the
+corresponding local evening time in their own timezone.
+
 ### Replacement marketplace target
 
 After a schedule is published, an assigned volunteer may open a replacement
@@ -93,6 +120,9 @@ source.
 - **Gender** (stored as codes): `M` | `F`.
 - **Region** (stored as codes): `IL` | `NA`.
   - **Scheduling / pairing**: IL and **NA do not intermingle** (no cross-region swaps or mixed scheduling within the same operational-day roster unless explicitly changed later).
+- **Timezone** (future optional field): IANA timezone such as `Asia/Jerusalem`,
+  `America/New_York`, or `America/Los_Angeles`; used only for participant-local
+  display of stored shift instants.
 
 Human-readable labels (e.g. Hebrew role names) belong in the UI, not necessarily in stored codes.
 
@@ -150,6 +180,28 @@ again on a different operational date.
 For bulk updates, validity is based on the final assignment state, not payload
 order. Moving a volunteer from one shift to another on the same operational date
 is valid when the final state leaves them assigned to only one shift.
+
+### Variable staffing requirements per shift slot
+
+Different shift slots may require different numbers of support volunteers. The
+assignment model should eventually represent both:
+
+- the **target / required** number of volunteers for a slot, and
+- the actual list of assigned volunteers for that slot.
+
+Example overnight target staffing:
+
+| Slot | Target volunteers |
+|------|-------------------|
+| 00–02 | 4 |
+| 02–04 | 3 |
+| 04–06 | 2 |
+| 06–08 | 0 or 1, depending on availability / policy |
+
+The current MVP stores at most one assignee directly on `shift`. Future
+multi-assignment work should move assignments into a separate assignment table
+and add per-slot staffing targets so the UI can show underfilled, filled, and
+optionally overfilled slots.
 
 ## Technical notes (current repo)
 

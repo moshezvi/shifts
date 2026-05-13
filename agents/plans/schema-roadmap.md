@@ -100,6 +100,7 @@ Potential sync fields:
 - `external_source`
 - `external_id`
 - `synced_at`
+- `timezone`
 - unique index on `(external_source, external_id)` when both are present
 
 Add lifecycle later:
@@ -107,6 +108,11 @@ Add lifecycle later:
 - `active` or `archived_at`
 - optional admin notes / contact fields
 - authentication identity only when login is actually introduced
+
+`timezone` should store an optional IANA timezone for display, such as
+`Asia/Jerusalem`, `America/New_York`, or `America/Los_Angeles`. It must not
+change operational-date logic; canonical scheduling remains anchored in
+`Asia/Jerusalem`.
 
 Avoid hard deletes once participants have assignments or marketplace activity.
 
@@ -118,8 +124,18 @@ Keep as the generated time slot table:
 - region
 - slot label / sort order
 - UTC start/end instants
+- target / required volunteer count for the slot
 
 `shift` should eventually describe the slot, not who is assigned to it.
+
+Future capacity fields:
+
+- `target_volunteers INTEGER NOT NULL DEFAULT 1`
+- optionally `min_volunteers INTEGER` and `max_volunteers INTEGER` if policy
+  needs a difference between required, ideal, and allowed staffing
+
+Example: overnight slots might target 4 volunteers for `00-02`, 3 for `02-04`,
+2 for `04-06`, and 0 or 1 for `06-08` depending on availability / policy.
 
 Potential future cleanup:
 
@@ -144,6 +160,10 @@ shift_assignment (
   replaced_by_assignment_id INTEGER REFERENCES shift_assignment(id)
 )
 ```
+
+One shift may have many assignment rows, up to the slot's allowed staffing
+policy. The UI should compare assignment count with the shift's target fields to
+show states such as underfilled, filled, optional, or overfilled.
 
 Likely `status` values:
 
@@ -189,6 +209,15 @@ Two possible shapes:
 
 Recommendation: use slot-based availability after shift rows are generated for
 the month. It matches the UI and avoids inventing another slot identity.
+
+The availability UI should be participant-context aware:
+
+- start with an explicit participant context (for example, selected user name at
+  the top),
+- later derive that context from authentication / session state,
+- filter available slots by participant region,
+- show canonical Israel slot time and optional participant-local time side by
+  side.
 
 Likely `availability_status` values:
 

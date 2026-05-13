@@ -10,16 +10,25 @@ Parking lot for next sessions. When you **complete** something listed here (or s
 ## Scheduling model
 
 - [x] Enforce **at most one shift per volunteer per operational day** (same `operational_date` / Jerusalem 08:00→08:00 anchor): validate on **`PATCH /api/shifts`** and **`PATCH /api/shifts/bulk`**, surface conflicts in UI (relax later if policy changes).
-- [ ] Support **multiple supporters assigned to the same shift slot** (schema change: likely a junction table `shift_assignment(shift_id, participant_id, …)` instead of a single `assigned_participant_id` on `shift`, plus API/UI updates).
+- [ ] Support **multiple supporters assigned to the same shift slot** with **per-slot staffing targets** (schema change: likely `shift.required_volunteers` / `target_volunteers` plus a junction table `shift_assignment(shift_id, participant_id, …)` instead of a single `assigned_participant_id` on `shift`, plus API/UI updates).
 
 ## Long-term product stages
 
 - [ ] Real participant lifecycle: create / update / archive participants and decide how real users authenticate or are administered.
-- [ ] Monthly availability intake: volunteers submit availability for the next month before scheduling starts.
+- [ ] Add optional participant timezone for display-only local time mapping; canonical operational dates remain anchored in **`Asia/Jerusalem`**.
+- [ ] Monthly availability intake: participant-context-aware week/month UI where volunteers submit availability for region-eligible shifts before scheduling starts, with Israel time and optional local time shown together.
 - [ ] Admin schedule builder: review availability, create a draft monthly schedule, manually adjust assignments, and publish when ready.
 - [ ] Replacement marketplace: assigned volunteers can post a shift for coverage and/or swap after the schedule is published.
 - [ ] Proposal and approval flow: eligible volunteers can offer coverage or a swap; the originator approves one proposal before assignments change.
 - [ ] Notifications: after approval, notify the originator, accepted volunteer, and admin / organizer.
+
+## MVP demo goal
+
+Planning note: **`agents/plans/mvp-demo-readiness.md`**.
+
+- [ ] Product MVP: participant CRUD/archive, clear schedule navigation, admin assignment workflow, availability intake, export/share surface, and Hebrew copy pass.
+- [ ] Operational MVP: explicit backup/restore, safe handling of dangerous demo scripts, clear empty/error states, and recovery paths for common admin mistakes.
+- [ ] Deployment MVP: pick SQLite-with-persistent-disk vs Postgres, add production build/run config, protect write APIs with auth, serve over HTTPS, and deploy only after tests/lint pass.
 
 ## Tests
 
