@@ -1,6 +1,6 @@
 # Backlog / TODO
 
-Parking lot for next sessions. When you **complete** something listed here (or supersede it), update this file and related docs per **`AGENTS.md`** → *Planning steward* and **`.cursor/rules/planning-steward.mdc`**. The **gap reviewer** may append new bullets under **Captured gaps (auto)** on its own (see **`.cursor/rules/logical-gaps.mdc`**). When you announce a **stage complete** / **ready to commit and push**, both roles should refresh this file and other docs in the **same** change—see **`AGENTS.md` → *Stage complete***.
+Parking lot for next sessions. When you **complete** something listed here (or supersede it), update this file and related docs per **`AGENTS.md`** and **`agents/roles.md`**. The **gap reviewer** may append new bullets under **Captured gaps (auto)** on its own. When you announce a **stage complete** / **ready to commit and push**, both roles should refresh this file and other docs in the **same** change—see **`agents/roles.md`** → *Release / Stage Completion Agent*.
 
 ## Seed / participants
 
@@ -9,6 +9,7 @@ Parking lot for next sessions. When you **complete** something listed here (or s
 
 ## Scheduling model
 
+- [ ] **Next stage:** enforce **at most one shift per volunteer per operational day** (same `operational_date` / Jerusalem 08:00→08:00 anchor): validate on **`PATCH /api/shifts`** and **`PATCH /api/shifts/bulk`**, surface conflicts in UI (at least for now—relax later if policy changes).
 - [ ] Support **multiple supporters assigned to the same shift slot** (schema change: likely a junction table `shift_assignment(shift_id, participant_id, …)` instead of a single `assigned_participant_id` on `shift`, plus API/UI updates).
 
 ## Tests
@@ -52,6 +53,6 @@ Shortlist to compare when you’re ready to deploy (FastAPI + SQLite file **or**
 
 ## Captured gaps (auto)
 
-The **gap reviewer** (`.cursor/rules/logical-gaps.mdc`) may append `- [ ]` lines here when it spots a **concrete** product hole during work—no separate ask from a human required. **Planning steward**: dedupe, reword, move, or check off when fixed; keep this section.
+The **gap reviewer** (`agents/roles.md`) may append `- [ ]` lines here when it spots a **concrete** product hole during work—no separate ask from a human required. **Planning steward**: dedupe, reword, move, or check off when fixed; keep this section.
 
 - [ ] **Participant lifecycle**: HTTP API (and optionally UI) to **create / update / delete** participants—or document that roster changes are **seed/scripts only**. Today: list + assign shifts, no participant CRUD.

@@ -1,0 +1,12 @@
+---
+description: Shared agent role model for planning, implementation, testing, gaps, and release
+alwaysApply: true
+---
+
+# Agent roles
+
+Cursor adapter only. The source of truth is **`agents/roles.md`**.
+
+Read **`AGENTS.md`** first, then apply the relevant role(s) from
+**`agents/roles.md`**. When the user asks for planning only, stay in planning
+mode unless they explicitly change scope.

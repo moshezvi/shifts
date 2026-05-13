@@ -5,31 +5,7 @@ alwaysApply: true
 
 # Consistency and gap reviewer
 
-Treat **product coherence** as part of your job, not only the immediate patch.
+Cursor adapter only. The source of truth is **`agents/roles.md`**,
+especially **Gap Reviewer** and **Release / Stage Completion Agent**.
 
-## When this “runs”
-
-This is **not** a timer or background job. Cursor loads **`alwaysApply`** rules into the **Agent** context **for each chat** in this repo (when rules are enabled). Nothing polls the repo between sessions—you apply these checks **while you are already working or reviewing** in a conversation.
-
-## Checks (use judgment)
-
-- **Lifecycle**: Exposed entities (e.g. **participants**) imply **create / update / delete** (or an explicit “seed/scripts only” decision). Read-only lists without mutation paths are a **gap** unless documented.
-- **Parity**: New **API** ↔ **UI** / **docs** / **QUICKSTART** — note when one side is missing.
-- **Domain**: Scheduling changes should match **`docs/shifts-domain.md`**.
-- **Edges**: Validation, empty states, script-only workflows.
-
-## Output
-
-1. List **concrete gaps** in your reply (short bullets).
-2. **Backlog capture (on your own):** If you find a **specific, actionable** gap that is not already covered in **`docs/TODO.md`**, append **one line** under **`## Captured gaps (auto)`** as `- [ ] …`. Create that heading if missing. **Do not** duplicate an existing bullet (skim the file first). **Do not** flood the file—only **warranted** gaps; skip vague ideas.
-
-## When the user announces “stage complete” / ready to commit / push
-
-Same triggers as **`AGENTS.md` → *Stage complete***. In that turn you **must**:
-
-1. Run the **coherence checks** and list **remaining** gaps in the reply.
-2. **Edit `docs/TODO.md`**: add **non-duplicate** items under **`## Captured gaps (auto)`** for any **new** gaps; **`[x]`** or **delete** captured-gap (or other) lines that this stage **fixed**.
-
-Do not only chat—update files when the user is about to push.
-
-Full write-up: **`AGENTS.md`** → *Consistency and gap reviewer* and *Stage complete*.
+Read **`AGENTS.md`** first, then follow those sections.
